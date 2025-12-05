@@ -1,10 +1,8 @@
-use std::ops::RangeInclusive;
-
 use itertools::Itertools;
 
 fn main() {
     let input = std::fs::read_to_string("input/day_5.txt").unwrap();
-    // println!("Part 1: {}", p1(&input));
+    println!("Part 1: {}", p1(&input));
     println!("Part 2: {}", p2(&input));
 }
 
@@ -32,7 +30,7 @@ fn p1(input: &str) -> usize {
 
 fn p2(input: &str) -> i64 {
     let (ranges, _) = input.split("\n\n").collect_tuple().unwrap();
-    let ranges: Vec<RangeInclusive<i64>> = ranges
+    let mut ranges: Vec<(i64, i64)> = ranges
         .lines()
         .map(|l| {
             l.split('-')
@@ -40,59 +38,35 @@ fn p2(input: &str) -> i64 {
                 .collect_tuple()
                 .unwrap()
         })
-        .map(|(start, end)| start..=end)
         .collect();
 
-    println!("ranges to go through: {}", ranges.len());
-    let mut consolidated_ranges = Vec::<RangeInclusive<i64>>::new();
-    consolidated_ranges.push(ranges[0].clone());
-    for (idx, mut range) in ranges.into_iter().skip(1).enumerate() {
-        println!("{idx}. To check: {}", consolidated_ranges.len());
-        for con_range in &mut consolidated_ranges {
-            // check if start is within
-            // let contains_start = con_range.contains(range.start());
-            // let contains_end = con_range.contains(range.end());
-            let contains_start = contains(&con_range, *range.start());
-            let contains_end = contains(&con_range, *range.end());
+    loop {
+        let mut consolidated_ranges = Vec::<(i64, i64)>::new();
+        consolidated_ranges.push(ranges[0].clone());
 
-            println!("{contains_start} {contains_end}");
-            // println!(
-            //     "std: {contains_start}..={contains_end} my: {contains_start_x}..={contains_end_x}"
-            // );
-
-            // if contains_start != contains_start_x {
-            //     println!("bad");
-            // }
-            // if contains_end != contains_end_x {
-            //     println!("bad");
-            // }
-
-            match (contains_start, contains_end) {
-                (true, true) => break,
-                (true, false) => {
-                    *con_range = *con_range.start()..=*range.end();
-                    break;
-                }
-                (false, true) => {
-                    *con_range = *range.start()..=*con_range.end();
-                    break;
-                }
-                (false, false) => {
-                    consolidated_ranges.push(range);
-                    break;
+        let mut changed_anything = false;
+        'l: for range in ranges.into_iter().skip(1) {
+            for con_range in consolidated_ranges.iter_mut() {
+                if overlaps(range, *con_range) {
+                    changed_anything = true;
+                    *con_range = (range.0.min(con_range.0), con_range.1.max(range.1));
+                    continue 'l;
                 }
             }
+            consolidated_ranges.push(range);
+        }
+        ranges = consolidated_ranges;
+
+        if !changed_anything {
+            break;
         }
     }
 
-    consolidated_ranges
-        .into_iter()
-        .map(|range| *range.end() - *range.start())
-        .sum()
+    ranges.into_iter().map(|(start, end)| end - start + 1).sum()
 }
 
-fn contains(range: &RangeInclusive<i64>, n: i64) -> bool {
-    n <= *range.end() && n >= *range.start()
+fn overlaps(a: (i64, i64), b: (i64, i64)) -> bool {
+    a.0 <= b.1 && a.0 >= b.0 || b.0 <= a.1 && b.0 >= a.0
 }
 
 #[cfg(test)]
@@ -120,6 +94,102 @@ mod tests {
     #[test]
     fn p2() {
         let expected = 14;
+        assert_eq!(super::p2(INPUT), expected);
+    }
+
+    #[test]
+    fn p2_test_1() {
+        const INPUT: &str = "\
+3-5
+10-14
+16-20
+12-18
+13-14
+13-13
+
+1
+5
+8
+11
+17
+32\
+        ";
+        let expected = 14;
+        assert_eq!(super::p2(INPUT), expected);
+    }
+
+    #[test]
+    fn p2_test_2() {
+        const INPUT: &str = "\
+1-10
+15-20
+17-25
+
+1
+2\
+        ";
+        let expected = 21;
+        assert_eq!(super::p2(INPUT), expected);
+    }
+
+    #[test]
+    fn p2_test_3() {
+        const INPUT: &str = "\
+1-10
+1-10
+
+1
+2\
+        ";
+        let expected = 10;
+        assert_eq!(super::p2(INPUT), expected);
+    }
+    #[test]
+    fn p2_test_4() {
+        const INPUT: &str = "\
+1-10
+2-5
+
+1
+2\
+        ";
+        let expected = 10;
+        assert_eq!(super::p2(INPUT), expected);
+    }
+
+    #[test]
+    fn p2_test_5() {
+        const INPUT: &str = "\
+200-300
+100-101
+1-1
+2-2
+3-3
+1-3
+1-3
+2-2
+50-70
+10-10
+98-99
+99-99
+99-99
+99-100
+1-1
+100-100
+100-100
+100-101
+200-300
+201-300
+202-300
+250-251
+98-99
+100-100
+100-101
+1-101
+
+2\
+        ";
+        let expected = 202;
         assert_eq!(super::p2(INPUT), expected);
     }
 }
